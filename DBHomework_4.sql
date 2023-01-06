@@ -18,25 +18,29 @@ ORDER BY avg_length DESC;
 
 -- все исполнители, которые не выпустили альбомы в 2020 году
 SELECT DISTINCT singer_name FROM singers s 
-LEFT JOIN albums_singers as2 ON s.singer_id = as2.singer_id
-LEFT JOIN albums a ON as2.album_id = a.album_id 
-WHERE a.production_year != 2020;
-
+WHERE singer_name NOT IN (
+	SELECT singer_name FROM singers s
+	LEFT JOIN albums_singers as2 ON s.singer_id = as2.singer_id
+	LEFT JOIN albums a ON as2.album_id = a.album_id 
+	WHERE a.production_year = 2020);
 
 -- названия сборников, в которых присутствует конкретный исполнитель (выберите сами)
 SELECT DISTINCT name_collection FROM collections c 
 JOIN collections_tracks ct ON c.collection_id = ct.collection_id 
-JOIN tracks t ON ct.track_id = t.track_id  
-JOIN albums_singers as2 ON t.album_id = as2.album_id 
+JOIN tracks t ON ct.track_id = t.track_id
+JOIN albums a ON t.album_id = a.album_id 
+JOIN albums_singers as2 ON a.album_id = as2.album_id 
 JOIN singers s ON as2.singer_id = s.singer_id
 WHERE s.singer_name LIKE 'Eminem';
 
 -- название альбомов, в которых присутствуют исполнители более 1 жанра
 SELECT album_name FROM albums a 
 JOIN albums_singers as2 ON a.album_id = as2.album_id 
-JOIN genres_singers gs ON as2.singer_id = gs.singer_id 
+JOIN singers s ON as2.singer_id = s.singer_id 
+JOIN genres_singers gs ON as2.singer_id = gs.singer_id
+JOIN genres g ON gs.genre_id = g.genre_id 
 GROUP BY album_name
-HAVING COUNT(genre_id) > 1;
+HAVING COUNT(g.genre_id) > 1;
 
 -- наименование треков, которые не входят в сборники
 SELECT track_name  FROM tracks t
@@ -50,8 +54,11 @@ JOIN tracks t ON as2.album_id = t.album_id
 WHERE length_track = (SELECT MIN(length_track) FROM tracks);
 
 -- название альбомов, содержащих наименьшее количество треков
-SELECT album_name, COUNT(track_id) FROM albums a 
+SELECT album_name FROM albums a 
 JOIN tracks t ON a.album_id = t.album_id 
 GROUP BY album_name
-ORDER BY count(track_id);
+HAVING (SELECT count(track_id) FROM tracks t
+	GROUP BY album_id 
+	ORDER BY count(track_id)
+	LIMIT 1) = count(track_id);
 
